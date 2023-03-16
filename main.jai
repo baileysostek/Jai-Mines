@@ -11,6 +11,9 @@ Texture :: Simp.Texture;
 // Game variables
 should_quit_game := false;
 
+window_width  :: 512;
+window_height :: 512;
+
 // Define the states our minefield cells can be in.
 CellState :: enum u8 {
   EMPTY :: 0;
@@ -39,6 +42,10 @@ GridState :: enum u8 {
 WIDTH  : u8 : 16; // Here we do : instead of = to make an immutable constant.
 HEIGHT : u8 : 16;
 
+// This is not constant so as the window changes size later we can resize.
+CELL_WIDTH  :: window_width / WIDTH;
+CELL_HEIGHT :: window_height / HEIGHT;
+
 // Define how many mines will be placed on our minefield
 MINE_COUNT : u8 : 40;
 
@@ -57,11 +64,8 @@ main :: () {
   // Reset our minefield
   reset_game();
 
-  // Open a simp window.
-  width  := 512;
-  height := 512;
-
-  window := create_window(window_name="Jai-Mines", width=width, height=height);
+  // Create a new window and set it as Simp's render target.
+  window := create_window(window_name="Jai-Mines", width=window_width, height=window_height);
   Simp.set_render_target(window);
 
   while !should_quit_game {
@@ -90,6 +94,18 @@ frame_logic :: () {
 
     if event.key_code == .ESCAPE 
         if event.key_pressed should_quit_game = true;
+  }
+}
+
+draw_board :: () {
+  for item, index : minefield{
+    x_pos := cast(float) (index % WIDTH);
+    y_pos := floor(cast(float)index / cast(float)WIDTH);
+
+    Simp.set_shader_for_color(true);
+    pos : Vector2 = .{x_pos * CELL_WIDTH, y_pos * CELL_HEIGHT};
+    s := 1 * window_width * .5;
+    Simp.immediate_quad(pos.x, pos.y, pos.x + CELL_WIDTH, pos.y + CELL_HEIGHT, .{(x_pos / WIDTH), (y_pos / HEIGHT), 0, 1});
   }
 }
 
@@ -124,10 +140,18 @@ place_mine :: (index : u8){
  minefield[index] = CellState.MINE;
 }
 
-render :: () {
+// "Borrowed" from the invaders example
+render_sprite_quad_centered :: (texture: *Texture, _pos: Vector2, size: Vector2, color: Vector4) {
+  Simp.set_shader_for_images(texture);
+  
+  pos := _pos * cast(float) window_width;
+  h := make_vector2(size.x*.5*window_width, 0);
+  v := make_vector2(0, size.y*.5*window_width);
 
-}
+  p0 := pos - h - v;
+  p1 := pos + h - v;
+  p2 := pos + h + v;
+  p3 := pos - h + v;
 
-on_mouse_click :: () {
-
+  Simp.immediate_quad(p0, p1, p2, p3,  color);
 }

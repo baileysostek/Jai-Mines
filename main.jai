@@ -3,39 +3,39 @@
 #import "Random";
 #import "Window_Creation";
 #import "Input";
+#import "String";
+#import "System";
+
+// Window size and mouse pos.
+#import "GetRect"; 
 
 // Import Simp and resources
 Simp    :: #import "Simp";
 Texture :: Simp.Texture;
+
+// Define our fonts to use with Simp
+font: *Simp.Dynamic_Font;
 
 // Game variables
 should_quit_game := false;
 
 window_width  :: 512;
 window_height :: 512;
-
-// Define the states our minefield cells can be in.
-CellState :: enum u8 {
-  EMPTY :: 0;
-  MINE  :: 1;
-}
+window : Window_Type;
 
 // Define the states our grid can be in.
 GridState :: enum u8 {
-  // These states represent the number of neighbors
-  ZERO      :: 0;
-  ONE       :: 1;
-  TOW       :: 2;
-  THREE     :: 3;
-  FOUR      :: 4;
-  FIVE      :: 5;
-  SIX       :: 6;
-  SEVEN     :: 7;
-  EIGHT     :: 8;
-
   // These are non-numeric states
-  FLAGGED   :: 9;
-  UNOPENED  :: 10;
+  UNOPENED  :: 0;
+  FLAGGED   :: 1;
+  REVEALED  :: 2;
+}
+
+// Moving from enum array to struct array
+GridCell :: struct {
+  state : GridState = GridState.UNOPENED;
+  neighbors : u8 = 0;
+  is_mine: bool = false;
 }
 
 // Set the sizes for width and height
@@ -51,21 +51,21 @@ MINE_COUNT : u8 : 40;
 
 BOARD_SIZE :: WIDTH * HEIGHT; // Auto Constant
 
-// Define our minefield
-minefield : [BOARD_SIZE] CellState; // The members of an array are guarenteed to be initialized to the value of 0. Since this is an array of enums this represents the first entry of the enum.
-
 // Deinfe our grid, this overlays our minefield and the player intreacts with it.
-grid : [BOARD_SIZE] GridState; // The grid is the same size as the minefield.
+minefield : [BOARD_SIZE] GridCell; // The grid is the same size as the minefield.
 
 main :: () {
   // Ensure that we never have more mines to place on the minefield, than minefield space available.
   assert((MINE_COUNT - 1) <= BOARD_SIZE); // The -1 here is because the first click will alwauys NOT be a mine.
 
+  // Init stuff
+  init_fonts();
+
   // Reset our minefield
   reset_game();
 
   // Create a new window and set it as Simp's render target.
-  window := create_window(window_name="Jai-Mines", width=window_width, height=window_height);
+  window = create_window(window_name="Jai-Mines", width=window_width, height=window_height);
   Simp.set_render_target(window);
 
   while !should_quit_game {
@@ -86,15 +86,38 @@ main :: () {
 }
 
 frame_logic :: () {
+  // get the mouse position
+  mouse_x, mouse_y := get_mouse_pointer_position(window, true);
+
+  // Event loop.
   for event : events_this_frame {
     if event.type == .QUIT {
-        should_quit_game = true;
-        break;
+      should_quit_game = true;
+      break;
     }
 
-    if event.key_code == .ESCAPE 
-        if event.key_pressed should_quit_game = true;
+    if event.key_code == .ESCAPE {
+      if event.key_pressed should_quit_game = true;
+      break;
+    }
+
+
+    if event.key_code == .MOUSE_BUTTON_LEFT {
+      if(event.key_pressed){
+        // Reveal mines below us.
+        print(ifx is_mouse_on_screen(mouse_x, mouse_y) then "Mouse on screen\n" else "Mouse off screen\n");
+        break;
+      }
+    }
+
+    if event.key_code == .MOUSE_BUTTON_RIGHT {
+      if(event.key_pressed){
+        // Flag mine below us.
+        break;
+      }
+    }
   }
+  // print("mouse:%,%\n", mouse_x, mouse_y);
 }
 
 draw_board :: () {
@@ -102,18 +125,38 @@ draw_board :: () {
     x_pos := cast(float) (index % WIDTH);
     y_pos := floor(cast(float)index / cast(float)WIDTH);
 
+    // Draw the Grid itself
     Simp.set_shader_for_color(true);
     pos : Vector2 = .{x_pos * CELL_WIDTH, y_pos * CELL_HEIGHT};
-    s := 1 * window_width * .5;
-    Simp.immediate_quad(pos.x, pos.y, pos.x + CELL_WIDTH, pos.y + CELL_HEIGHT, .{(x_pos / WIDTH), (y_pos / HEIGHT), 0, 1});
+    Simp.immediate_quad(pos.x, pos.y, pos.x + CELL_WIDTH, pos.y + CELL_HEIGHT, ifx check_mine(cast(u8)index) then Vector4.{1, 0, 0, 1} else .{0, 1, 0, 1});
+    
+    // Draw the number
+    if(!item.is_mine){
+      // There must be a better way to append an integer to a string.
+      builder: String_Builder;
+      init_string_builder(*builder);
+      print_to_builder(*builder, "%", item.neighbors);
+      neighbors_string := builder_to_string(*builder);
+
+      Simp.prepare_text(font, neighbors_string);
+      Simp.draw_prepared_text(font, xx pos.x + (CELL_WIDTH / 4), xx pos.y + (CELL_HEIGHT / 4), Vector4.{0, 0, 0, 1});
+    }
   }
 }
 
 reset_game :: () {
+  // Reset random
+  random_seed(current_time_monotonic().low);
+
+  // print("Time is now %.\n", );
+
   // Reset the minefield and grid.
-  for value, index : minefield {
-    minefield[index] = CellState.EMPTY;
-    grid[index] = GridState.UNOPENED;
+  for item, index : minefield {
+    minefield[index] = GridCell.{
+      GridState.UNOPENED,
+      0,
+      false
+    };
   }
 
   // Place our mines
@@ -126,18 +169,56 @@ reset_game :: () {
       to_place -= 1;
     }
   }
-  
-  // Print the Minefield.
-  print("%", minefield);
+
+  // Calculate the neighbors of each cell
+  for item, index : minefield {
+    minefield[index].neighbors = calculate_neighbors(cast(u8)index);
+  }
 }
 
 
 check_mine :: (index : u8) -> bool {
-  return minefield[index] == CellState.MINE;
+  return minefield[index].is_mine;
 }
 
 place_mine :: (index : u8){
- minefield[index] = CellState.MINE;
+ minefield[index].is_mine = true;
+}
+
+calculate_neighbors :: (index : u8) -> u8 {
+  pos_x, pos_y := get_xy_from_index(index);
+
+  count : u8 = 0;
+
+  for index_y : -1 .. 1{
+    for index_x : -1 .. 1{
+      
+      evaluate_x := pos_x + index_x;
+      evaluate_y := pos_y + index_y;
+
+      if(is_point_on_grid(evaluate_x, evaluate_y) && check_mine(get_index_from_xy(cast(u8)evaluate_x, cast(u8)evaluate_y))){
+        count += 1;
+      }
+    }
+  }
+
+  return count;
+}
+
+is_point_on_grid :: (pos_x:int, pos_y:int) -> bool {
+  return (pos_x >= 0 && pos_x < WIDTH) && (pos_y >= 0 && pos_y < HEIGHT);
+}
+
+get_xy_from_index :: (index : u8) -> x:u8, y:u8 {
+  return index % WIDTH, cast(u8)floor((cast(float)index / cast(float)WIDTH));
+}
+
+get_index_from_xy :: (pos_x : u8, pos_y : u8) -> u8 {
+  return pos_x + (pos_y * WIDTH);
+}
+
+is_mouse_on_screen  :: (mouse_x : int, mouse_y : int) -> bool {
+  return mouse_x >= 0 && mouse_x < window_width && mouse_y >= 0 && mouse_y < window_height;
 }
 
 // "Borrowed" from the invaders example
@@ -154,4 +235,17 @@ render_sprite_quad_centered :: (texture: *Texture, _pos: Vector2, size: Vector2,
   p3 := pos - h + v;
 
   Simp.immediate_quad(p0, p1, p2, p3,  color);
+}
+
+init_fonts :: () {
+  // So that we can load our font, set to path of running executable.
+  // @Incomplete: Pack a default font into Simp.
+  path := path_strip_filename(get_path_of_running_executable());
+
+  set_working_directory(path);
+  pixel_height := window_height / 24;
+
+  // @Cleanup: Don't have path + name be separate.
+  font = Simp.get_font_at_size("data", "Roboto-Regular.ttf", pixel_height);
+  assert(font != null);
 }

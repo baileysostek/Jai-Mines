@@ -19,6 +19,7 @@ font: *Simp.Dynamic_Font;
 // Define our textures
 texture_grid_cell : Texture;
 texture_mine      : Texture;
+texture_flag      : Texture;
 
 // Game variables
 should_quit_game := false;
@@ -206,29 +207,26 @@ draw_board :: () {
     // Draw the foreground light grey color defining a cell.
     Simp.immediate_quad(pos.x + CELL_WIDTH * (BORDER_THICKNESS), pos.y + CELL_HEIGHT * (BORDER_THICKNESS), pos.x + CELL_WIDTH * (1.0 - BORDER_THICKNESS), pos.y + CELL_HEIGHT * (1.0 - BORDER_THICKNESS), FOREGROUND_COLOR);
 
+    if check_flag(cast(u16)index){
+      Simp.set_shader_for_images(*texture_flag);
+      Simp.immediate_quad(pos.x, pos.y, pos.x + CELL_WIDTH, pos.y + CELL_HEIGHT, .{1,1,1,1});
+      continue;
+    }
+
     if check_mine(cast(u16)index) {
       Simp.set_shader_for_images(*texture_mine);
       Simp.immediate_quad(pos.x, pos.y, pos.x + CELL_WIDTH, pos.y + CELL_HEIGHT, .{1,1,1,1});
       continue;
     }
 
-    // Draw the cell
-    if item.state == {
-      case GridState.FLAGGED;
-        Simp.immediate_quad(pos.x, pos.y, pos.x + CELL_WIDTH, pos.y + CELL_HEIGHT,.{0, 0, 1, 1});
-      case GridState.REVEALED;
-        // Draw the number
-        if(!item.is_mine){
-          // There must be a better way to append an integer to a string.
-          builder: String_Builder;
-          init_string_builder(*builder);
-          print_to_builder(*builder, "%", item.neighbors);
-          neighbors_string := builder_to_string(*builder);
+    // This is the default cell with a number in it.
+    builder: String_Builder;
+    init_string_builder(*builder);
+    print_to_builder(*builder, "%", item.neighbors);
+    neighbors_string := builder_to_string(*builder);
 
-          message_width := Simp.prepare_text(font, neighbors_string);
-          Simp.draw_prepared_text(font, xx pos.x + ((CELL_WIDTH - message_width) / 2), xx pos.y + ((CELL_HEIGHT - message_width) / 2), COLOR_LOOKUP[item.neighbors]);
-        }
-    }
+    message_width := Simp.prepare_text(font, neighbors_string);
+    Simp.draw_prepared_text(font, xx pos.x + ((CELL_WIDTH - message_width) / 2), xx pos.y + ((CELL_HEIGHT - message_width) / 2), COLOR_LOOKUP[item.neighbors]);
   }
 }
 
@@ -365,6 +363,7 @@ init_fonts :: () {
 init_textures :: () {
   texture_grid_cell = make_texture("data/grid_cell.png");
   texture_mine      = make_texture("data/mine.png");
+  texture_flag      = make_texture("data/flag.png");
 }
 
 // Borrowed from invaders.

@@ -1,4 +1,4 @@
-<p align="center"><img src="https://github.com/baileysostek/Jai-Mines/mines.png" alt="Apiary" width="512" height="512"/></p>
+<p align="center"><img src="https://github.com/baileysostek/Jai-Mines/blob/main/mines.png" alt="Apiary" width="512" height="512"/></p>
 
 # Jai-Mines
 

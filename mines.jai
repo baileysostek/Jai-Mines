@@ -51,7 +51,7 @@ GameState :: enum int {
   PLAY :: 1;
   GAME_OVER :: 2;
 }
-gamepley_state := GameState.MAIN_MENU;
+gameplay_state := GameState.MAIN_MENU;
 first_click := true;
 
 // Colors and variables for visuals.
@@ -215,7 +215,6 @@ draw_board :: () {
     x_pos := cast(float) (index % WIDTH);
     y_pos := floor(cast(float)index / cast(float)WIDTH);
 
-
     pos : Vector2 = .{x_pos * CELL_WIDTH, y_pos * CELL_HEIGHT};
 
     // In the case that a cell is not opened we will draw the unopened sprite.
@@ -238,6 +237,9 @@ draw_board :: () {
     }
 
     if check_mine(cast(int)index) {
+      if gameplay_state == GameState.GAME_OVER {
+        Simp.immediate_quad(pos.x + CELL_WIDTH * (BORDER_THICKNESS), pos.y + CELL_HEIGHT * (BORDER_THICKNESS), pos.x + CELL_WIDTH * (1.0 - BORDER_THICKNESS), pos.y + CELL_HEIGHT * (1.0 - BORDER_THICKNESS), .{1, 0, 0, 1});
+      }
       Simp.set_shader_for_images(*texture_mine);
       Simp.immediate_quad(pos.x, pos.y, pos.x + CELL_WIDTH, pos.y + CELL_HEIGHT, .{1,1,1,1});
       continue;
@@ -260,6 +262,7 @@ reset_game :: () {
 
   // Reset the first click counter
   first_click = true;
+  gameplay_state = GameState.PLAY;
 
   // Reset the minefield and grid.
   for item, index : minefield {
@@ -404,8 +407,13 @@ reveal_cell :: (index : int){
     return;
   }
 
+  // Check if we are revaling a mine
+  if check_mine(index) {
+    trigger_game_over();
+    return;
+  }
+
   // Reveal this cell 
-  print("Revaling:%\n", index);
   minefield[index].state = GridState.REVEALED;
 
   // If we click on a cell with no neighbors, reveal the neighbors
@@ -432,6 +440,10 @@ is_point_on_grid :: (pos_x:int, pos_y:int) -> bool {
   return (pos_x >= 0 && pos_x < WIDTH) && (pos_y >= 0 && pos_y < HEIGHT);
 }
 
+is_mouse_on_screen  :: (mouse_x : int, mouse_y : int) -> bool {
+  return mouse_x >= 0 && mouse_x < window_width && mouse_y >= 0 && mouse_y < window_height;
+}
+
 get_xy_from_index :: (index : int) -> x:int, y:int {
   return cast(int)(index % WIDTH), cast(int)floor((cast(float)index / cast(float)WIDTH));
 }
@@ -440,8 +452,15 @@ get_index_from_xy :: (pos_x : int, pos_y : int) -> int {
   return pos_x + (pos_y * WIDTH);
 }
 
-is_mouse_on_screen  :: (mouse_x : int, mouse_y : int) -> bool {
-  return mouse_x >= 0 && mouse_x < window_width && mouse_y >= 0 && mouse_y < window_height;
+trigger_game_over :: () {
+  // Reval all of the mines;
+  for item, index : minefield {
+    if item.is_mine {
+      minefield[index].state = GridState.REVEALED;
+    }
+  }
+
+  gameplay_state = GameState.GAME_OVER;
 }
 
 init_fonts :: () {

@@ -1,3 +1,5 @@
+<p align="center"><img src="https://github.com/baileysostek/Jai-Mines/mines.png" alt="Apiary" width="512" height="512"/></p>
+
 # Jai-Mines
 
 This is very much a work in progress and I am using it as an example project to learn Jai the programming language created by Jonathan Blow.

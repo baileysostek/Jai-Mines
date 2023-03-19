@@ -297,15 +297,27 @@ recalculate_neighbors :: () {
 }
 
 check_flag :: (index : int) -> bool {
+  // Ensure we are indexing into the minefield at a real index.
+  if !is_index_on_grid(index) {
+    return false;
+  }
   return minefield[index].state == GridState.FLAGGED;
 }
 
 check_mine :: (index : int) -> bool {
+  // Ensure we are indexing into the minefield at a real index.
+  if !is_index_on_grid(index) {
+    return false;
+  }
   return minefield[index].is_mine;
 }
 
 place_mine :: (index : int){
- minefield[index].is_mine = true;
+  // Ensure we are indexing into the minefield at a real index.
+  if !is_index_on_grid(index) {
+    return;
+  }
+  minefield[index].is_mine = true;
 }
 
 calculate_neighbors :: (index : int) -> int {
@@ -350,12 +362,21 @@ calculate_flagged_neighbors :: (index : int) -> int {
 }
 
 toggle_flag :: (index : int){
+  // Ensure we are indexing into the minefield at a real index.
+  if !is_index_on_grid(index) {
+    return;
+  }
+
   if(minefield[index].state != GridState.REVEALED){
     minefield[index].state = ifx minefield[index].state == GridState.FLAGGED then GridState.UNOPENED else GridState.FLAGGED;
   }
 }
 
 reveal_cell :: (index : int){
+  // Ensure we are indexing into the minefield at a real index.
+  if !is_index_on_grid(index) {
+    return;
+  }
   // If this is the first click
   if first_click {
     // The first click can never be a mine, in fact I want it to always be a 0.
@@ -438,6 +459,10 @@ reveal_cell :: (index : int){
 
 is_point_on_grid :: (pos_x:int, pos_y:int) -> bool {
   return (pos_x >= 0 && pos_x < WIDTH) && (pos_y >= 0 && pos_y < HEIGHT);
+}
+
+is_index_on_grid :: (index:int) -> bool {
+  return index >= 0 && index < minefield.count;
 }
 
 is_mouse_on_screen  :: (mouse_x : int, mouse_y : int) -> bool {
